@@ -1,3 +1,10 @@
+# Custom
+data/
+checkpoints/
+results/
+test_results/
+result_*.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
