@@ -14,27 +14,24 @@ class RetrievalTool():
         seq_len,
         pred_len,
         channels,
-        n_gran=5,
+        n_period=3,
         temperature=0.1,
-        k=20,
+        topm=20,
         with_dec=False,
         return_key=False,
     ):
-        if n_gran > 5:
-            assert(0)
-            
-        gran_num = [16, 8, 4, 2, 1]
-        gran_num = gran_num[-1 * n_gran:]
+        period_num = [16, 8, 4, 2, 1]
+        period_num = period_num[-1 * n_period:]
         
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.channels = channels
         
-        self.n_gran = n_gran
-        self.gran_num = sorted(gran_num, reverse=True)
+        self.n_period = n_period
+        self.period_num = sorted(period_num, reverse=True)
         
         self.temperature = temperature
-        self.k = k
+        self.topm = topm
         
         self.with_dec = with_dec
         self.return_key = return_key
@@ -64,7 +61,7 @@ class RetrievalTool():
         data_all = copy.deepcopy(data_all) # T, S, C
 
         mg = []
-        for g in self.gran_num:
+        for g in self.period_num:
             cur = data_all.unfold(dimension=1, size=g, step=g).mean(dim=-1)
             cur = cur.repeat_interleave(repeats=g, dim=1)
             
@@ -75,9 +72,9 @@ class RetrievalTool():
 
         if remove_offset:
             offset = []
-            for i, data_gran in enumerate(mg):
-                cur_offset = data_gran[:,-1:,:]
-                mg[i] = data_gran - cur_offset
+            for i, data_p in enumerate(mg):
+                cur_offset = data_p[:,-1:,:]
+                mg[i] = data_p - cur_offset
                 offset.append(cur_offset)
         else:
             offset = None
@@ -86,7 +83,7 @@ class RetrievalTool():
             
         return mg, offset
     
-    def gran_batch_corr(self, data_all, key, in_bsz = 512):
+    def periodic_batch_corr(self, data_all, key, in_bsz = 512):
         _, bsz, features = key.shape
         _, train_len, _ = data_all.shape
         
@@ -117,7 +114,7 @@ class RetrievalTool():
         
         x_mg, mg_offset = self.decompose_mg(x) # G, B, S, C
 
-        sim = self.gran_batch_corr(
+        sim = self.periodic_batch_corr(
             self.train_data_all_mg.flatten(start_dim=2), # G, T, S * C
             x_mg.flatten(start_dim=2), # G, B, S * C
         ) # G, B, T
@@ -132,20 +129,20 @@ class RetrievalTool():
 
             self_mask = torch.zeros((bsz, self.n_train)).to(x.device)
             self_mask = self_mask.scatter_(1, sliding_index, 1.)
-            self_mask = self_mask.unsqueeze(dim=0).repeat(self.n_gran, 1, 1)
+            self_mask = self_mask.unsqueeze(dim=0).repeat(self.n_period, 1, 1)
             
             sim = sim.masked_fill_(self_mask.bool(), float('-inf')) # G, B, T
 
-        sim = sim.reshape(self.n_gran * bsz, self.n_train) # G X B, T
+        sim = sim.reshape(self.n_period * bsz, self.n_train) # G X B, T
                 
-        topk_index = torch.topk(sim, self.k, dim=1).indices
+        topm_index = torch.topk(sim, self.topm, dim=1).indices
         ranking_sim = torch.ones_like(sim) * float('-inf')
         
         rows = torch.arange(sim.size(0)).unsqueeze(-1).to(sim.device)
-        ranking_sim[rows, topk_index] = sim[rows, topk_index]
+        ranking_sim[rows, topm_index] = sim[rows, topm_index]
         
-        sim = sim.reshape(self.n_gran, bsz, self.n_train) # G, B, T
-        ranking_sim = ranking_sim.reshape(self.n_gran, bsz, self.n_train) # G, B, T
+        sim = sim.reshape(self.n_period, bsz, self.n_train) # G, B, T
+        ranking_sim = ranking_sim.reshape(self.n_period, bsz, self.n_train) # G, B, T
 
         data_len, seq_len, channels = self.train_data_all.shape
             
@@ -154,7 +151,7 @@ class RetrievalTool():
         
         y_data_all = self.y_data_all_mg.flatten(start_dim=2) # G, T, P * C
         
-        pred_from_retrieval = torch.bmm(ranking_prob, y_data_all).reshape(self.n_gran, bsz, -1, channels)
+        pred_from_retrieval = torch.bmm(ranking_prob, y_data_all).reshape(self.n_period, bsz, -1, channels)
         pred_from_retrieval = pred_from_retrieval.to(x.device)
         
         return pred_from_retrieval

@@ -28,22 +28,22 @@ class Model(nn.Module):
 
         self.linear_x = nn.Linear(self.seq_len, self.pred_len)
         
-        self.n_gran = configs.n_gran
-        self.k = configs.k
+        self.n_period = configs.n_period
+        self.topm = configs.topm
         
         self.rt = RetrievalTool(
             seq_len=self.seq_len,
             pred_len=self.pred_len,
             channels=self.channels,
-            n_gran=self.n_gran,
-            k=self.k,
+            n_period=self.n_period,
+            topm=self.topm,
         )
         
-        self.gran_num = self.rt.gran_num[-1 * self.n_gran:]
+        self.period_num = self.rt.period_num[-1 * self.n_period:]
         
         module_list = [
             nn.Linear(self.pred_len // g, self.pred_len)
-            for g in self.gran_num
+            for g in self.period_num
         ]
         self.retrieval_pred = nn.ModuleList(module_list)
         self.linear_pred = nn.Linear(2 * self.pred_len, self.pred_len)
@@ -92,7 +92,7 @@ class Model(nn.Module):
         # Compress repeating dimensions
         for i, pr in enumerate(pred_from_retrieval):
             assert((bsz, self.pred_len, channels) == pr.shape)
-            g = self.gran_num[i]
+            g = self.period_num[i]
             pr = pr.reshape(bsz, self.pred_len // g, g, channels)
             pr = pr[:, :, 0, :]
             

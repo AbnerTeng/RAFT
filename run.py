@@ -86,11 +86,11 @@ if __name__ == '__main__':
         help='whether to output attention in ecoder'
     )
     parser.add_argument(
-        '--n_gran', type=int, default=3,
-        help='Number of Granularity'
+        '--n_period', type=int, default=3,
+        help='Number of Periods'
     )
     parser.add_argument(
-        '--k', type=int, default=20,
+        '--topm', type=int, default=20,
         help='Number of Retrievals'
     )
 
