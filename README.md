@@ -1,5 +1,5 @@
-# RAFT
-Retrieval-Augmented Forecasting of Time-series
+# Retrieval-Augmented Forecasting of Time-series (RAFT)
+This repo is the PyTorch code of our paper, which is accepted to ICML 2025.
 
 ### Required Packages
 * python == 3.9.13
