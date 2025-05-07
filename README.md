@@ -8,8 +8,8 @@ This repo is the PyTorch code of our paper, which is accepted to ICML 2025.
 * tqdm == 4.65.0
 
 ### Usage
-1. Place dataset files in ./data directory
-2. Run following code
+1. Create ./data directory and place dataset files in ./data directory.
+2. Run following code.
 ```
 python3 run.py --data [DATASET]
 ```
